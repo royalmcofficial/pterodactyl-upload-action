@@ -39,6 +39,14 @@ inputs:
   follow-symbolic-links:
     description: "Indicates whether to follow symbolic links"
     default: true
+  cf-client-id:
+    description: "Cloudflare Access Client ID"
+    required: false
+    default: ""
+  cf-client-secret:
+    description: "Cloudflare Access Client Secret"
+    required: false
+    default: ""
 runs:
   using: "node16"
   main: "dist/index.js"

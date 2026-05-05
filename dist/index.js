@@ -11952,6 +11952,7 @@ async function main() {
       sourceListPath,
       targetPath,
       restart,
+      command,
       targets,
       decompressTarget,
     } = settings;
@@ -12002,6 +12003,7 @@ async function main() {
         }
       }
 
+      if (command != "") await sendConsoleCommand(serverId, command);
       if (restart) await restartServer(serverId);
     }
 
@@ -12015,6 +12017,7 @@ async function getSettings() {
   const panelHost = getInput("panel-host", { required: true });
   const apiKey = getInput("api-key", { required: true });
   const restart = getInput("restart") == "true";
+  const command = getInput("command");
   const proxy = getInput("proxy");
   const decompressTarget = getInput("decompress-target") == "true";
   const followSymbolicLinks = getInput("follow-symbolic-links") == "true";
@@ -12027,6 +12030,7 @@ async function getSettings() {
 
   // Debug print out all the inputs
   core.debug(`restart: ${restart}`);
+  core.debug(`command: ${command}`);
   core.debug(`source: ${sourcePath}`);
   core.debug(`sources: ${sourceListPath}`);
   core.debug(`target: ${targetPath}`);
@@ -12061,11 +12065,11 @@ async function getSettings() {
     (!targets.length || targets.length == 0)
   )
     throw new Error(
-      "Either source or sources must be defined. Both are empty."
+      "Either source or sources must be defined. Both are empty.",
     );
   if (!serverIdInput && !serverIds.length)
     throw new Error(
-      "Either server-id or server-ids must be defined. Both are empty."
+      "Either server-id or server-ids must be defined. Both are empty.",
     );
 
   if (sourcePath && !sourceListPath.length) sourceListPath = [sourcePath];
@@ -12075,6 +12079,7 @@ async function getSettings() {
     panelHost,
     apiKey,
     restart,
+    command,
     proxy,
     sourceListPath,
     targetPath,
@@ -12088,6 +12093,10 @@ async function getSettings() {
 function configureAxios(panelHost, apiKey, proxy) {
   axios.defaults.baseURL = panelHost;
   axios.defaults.headers.common["Authorization"] = `Bearer ${apiKey}`;
+  axios.defaults.headers.common["CF-Access-Client-Id"] =
+    core.getInput("cf-client-id");
+  axios.defaults.headers.common["CF-Access-Client-Secret"] =
+    core.getInput("cf-client-secret");
   axios.defaults.maxContentLength = Infinity;
   axios.defaults.maxBodyLength = Infinity;
 
@@ -12158,19 +12167,19 @@ async function uploadFile(serverId, targetFile, buffer) {
           params: { file: targetFile },
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
+              (progressEvent.loaded * 100) / progressEvent.total,
             );
             core.info(
-              `Uploading ${targetFile} to ${serverId} (${percentCompleted}%)`
+              `Uploading ${targetFile} to ${serverId} (${percentCompleted}%)`,
             );
           },
-        }
+        },
       );
       if (response?.status == 204) {
         uploaded = true;
       } else {
         core.error(
-          `Upload failed with status ${response?.status}, retrying...`
+          `Upload failed with status ${response?.status}, retrying...`,
         );
       }
     } catch (error) {
@@ -12187,6 +12196,12 @@ async function restartServer(serverId) {
   });
 }
 
+async function sendConsoleCommand(serverId, command) {
+  await axios.post(`/api/client/servers/${serverId}/command`, {
+    command: command,
+  });
+}
+
 async function decompressFile(serverId, targetFile) {
   await axios.post(`/api/client/servers/${serverId}/files/decompress`, {
     root: "/",
@@ -12200,7 +12215,7 @@ async function deleteFile(serverId, targetFile) {
     {
       root: "/",
       files: [targetFile],
-    }
+    },
   );
 
   // check if the response was 403 (forbidden), try again until the max retries is reached
@@ -12212,7 +12227,7 @@ async function deleteFile(serverId, targetFile) {
       {
         root: "/",
         files: [targetFile],
-      }
+      },
     );
     retries++;
   }

@@ -131,11 +131,11 @@ async function getSettings() {
     (!targets.length || targets.length == 0)
   )
     throw new Error(
-      "Either source or sources must be defined. Both are empty."
+      "Either source or sources must be defined. Both are empty.",
     );
   if (!serverIdInput && !serverIds.length)
     throw new Error(
-      "Either server-id or server-ids must be defined. Both are empty."
+      "Either server-id or server-ids must be defined. Both are empty.",
     );
 
   if (sourcePath && !sourceListPath.length) sourceListPath = [sourcePath];
@@ -159,6 +159,10 @@ async function getSettings() {
 function configureAxios(panelHost, apiKey, proxy) {
   axios.defaults.baseURL = panelHost;
   axios.defaults.headers.common["Authorization"] = `Bearer ${apiKey}`;
+  axios.defaults.headers.common["CF-Access-Client-Id"] =
+    core.getInput("cf-client-id");
+  axios.defaults.headers.common["CF-Access-Client-Secret"] =
+    core.getInput("cf-client-secret");
   axios.defaults.maxContentLength = Infinity;
   axios.defaults.maxBodyLength = Infinity;
 
@@ -229,19 +233,19 @@ async function uploadFile(serverId, targetFile, buffer) {
           params: { file: targetFile },
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
+              (progressEvent.loaded * 100) / progressEvent.total,
             );
             core.info(
-              `Uploading ${targetFile} to ${serverId} (${percentCompleted}%)`
+              `Uploading ${targetFile} to ${serverId} (${percentCompleted}%)`,
             );
           },
-        }
+        },
       );
       if (response?.status == 204) {
         uploaded = true;
       } else {
         core.error(
-          `Upload failed with status ${response?.status}, retrying...`
+          `Upload failed with status ${response?.status}, retrying...`,
         );
       }
     } catch (error) {
@@ -277,7 +281,7 @@ async function deleteFile(serverId, targetFile) {
     {
       root: "/",
       files: [targetFile],
-    }
+    },
   );
 
   // check if the response was 403 (forbidden), try again until the max retries is reached
@@ -289,7 +293,7 @@ async function deleteFile(serverId, targetFile) {
       {
         root: "/",
         files: [targetFile],
-      }
+      },
     );
     retries++;
   }
