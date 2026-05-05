@@ -12028,7 +12028,6 @@ async function getSettings() {
   let serverIdInput = getInput("server-id");
   let serverIds = getMultilineInput("server-ids");
 
-  // Debug print out all the inputs
   core.debug(`restart: ${restart}`);
   core.debug(`command: ${command}`);
   core.debug(`source: ${sourcePath}`);
@@ -12049,10 +12048,7 @@ async function getSettings() {
 
   const targets = config.targets || [];
 
-  // Debug print out all the config
   core.debug(`config: ${JSON.stringify(config)}`);
-
-  // Debug print out all the inputs after config
   core.debug(`source: ${sourcePath}`);
   core.debug(`sources: ${sourceListPath}`);
   core.debug(`target: ${targetPath}`);
@@ -12093,6 +12089,7 @@ async function getSettings() {
 function configureAxios(panelHost, apiKey, proxy) {
   axios.defaults.baseURL = panelHost;
   axios.defaults.headers.common["Authorization"] = `Bearer ${apiKey}`;
+  // CF Access headers
   axios.defaults.headers.common["CF-Access-Client-Id"] =
     core.getInput("cf-client-id");
   axios.defaults.headers.common["CF-Access-Client-Secret"] =
@@ -12104,13 +12101,6 @@ function configureAxios(panelHost, apiKey, proxy) {
     const [auth, hostPort] = proxy.split("@");
     const [username, password] = auth.split(":");
     const [host, port] = hostPort.split(":");
-
-    // axios.defaults.proxy = {
-    //   protocol: "http",
-    //   host,
-    //   port,
-    //   auth: { username, password },
-    // };
 
     const httpsAgent = tunnel.httpsOverHttp({
       proxy: {
@@ -12144,8 +12134,16 @@ async function validateSourceFile(source) {
 }
 
 function isArchiveFile(fileName) {
-  const ext = path.extname(fileName).toLowerCase();
-  return [".zip", ".tar", ".tar.gz", ".tgz", ".rar"].includes(ext);
+  const base = path.basename(fileName).toLowerCase();
+  if (
+    base.endsWith(".tar.gz") ||
+    base.endsWith(".tar.bz2") ||
+    base.endsWith(".tar.xz")
+  ) {
+    return true;
+  }
+  const ext = path.extname(base);
+  return [".zip", ".tar", ".tgz", ".rar"].includes(ext);
 }
 
 function getTargetFile(targetPath, source) {
@@ -12155,7 +12153,6 @@ function getTargetFile(targetPath, source) {
 }
 
 async function uploadFile(serverId, targetFile, buffer) {
-  // check if the response was 403 (forbidden), try again until the max retries is reached
   let retries = 0;
   let uploaded = false;
   while (!uploaded && retries < 3) {
@@ -12204,8 +12201,8 @@ async function sendConsoleCommand(serverId, command) {
 
 async function decompressFile(serverId, targetFile) {
   await axios.post(`/api/client/servers/${serverId}/files/decompress`, {
-    root: "/",
-    file: targetFile,
+    root: path.dirname(targetFile),
+    file: path.basename(targetFile),
   });
 }
 
@@ -12213,20 +12210,19 @@ async function deleteFile(serverId, targetFile) {
   let response = await axios.post(
     `/api/client/servers/${serverId}/files/delete`,
     {
-      root: "/",
-      files: [targetFile],
+      root: path.dirname(targetFile),
+      files: [path.basename(targetFile)],
     },
   );
 
-  // check if the response was 403 (forbidden), try again until the max retries is reached
   let retries = 0;
   while (response.status === 403 && retries < 3) {
     core.info(`Delete failed, retrying...`);
     response = await axios.post(
       `/api/client/servers/${serverId}/files/delete`,
       {
-        root: "/",
-        files: [targetFile],
+        root: path.dirname(targetFile),
+        files: [path.basename(targetFile)],
       },
     );
     retries++;
